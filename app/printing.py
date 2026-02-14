@@ -15,59 +15,72 @@ def _generate_token_image(token_no: int, dept: str, width: int, height: int):
     img = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(img)
 
-    # Scale fonts relative to width (so higher printer DPI => sharper text)
-    # Base was 384px wide
     scale = width / 384.0
 
-    font_big   = _load_font("arialbd.ttf", int(80 * scale))
-    font_mid   = _load_font("arialbd.ttf", int(36 * scale))
-
-    # ✅ Make date/time as clear as possible: bigger + bold + pure black
-    font_time  = _load_font("arialbd.ttf", int(30 * scale))
+    # Slightly smaller fonts for compact layout
+    font_title  = _load_font("arialbd.ttf", int(32 * scale))
+    font_big    = _load_font("arialbd.ttf", int(85 * scale))
+    font_time   = _load_font("arialbd.ttf", int(26 * scale))
+    font_small  = _load_font("arialbd.ttf", int(22 * scale))
 
     y = int(20 * scale)
 
-    # ---- LOGO ----
-    if os.path.exists("logo.png"):
-        logo = Image.open("logo.png").convert("RGBA")
-        logo_size = int(160 * scale)
-        logo = logo.resize((logo_size, logo_size))
-        img.paste(logo, ((width - logo_size)//2, y), logo)
-        y += int(180 * scale)
-
-    # ---- TOKEN LABEL ----
-    draw.text(
-        (width // 2, y),
-        "TOKEN NO",
-        fill="black",
-        font=font_mid,
-        anchor="mm"
-    )
+    # TOKEN LABEL
+    draw.text((width // 2, y),
+              "TOKEN",
+              fill="black",
+              font=font_title,
+              anchor="mm")
     y += int(50 * scale)
 
-    # ---- TOKEN NUMBER ----
-    draw.text(
-        (width // 2, y),
-        str(token_no),
-        fill="black",
-        font=font_big,
-        anchor="mm"
-    )
-    y += int(110 * scale)
+    # TOKEN NUMBER (big but not too tall)
+    draw.text((width // 2, y),
+              str(token_no),
+              fill="black",
+              font=font_big,
+              anchor="mm")
+    y += int(60 * scale)
 
-    # ---- DATE & TIME ----
-    now = datetime.now().strftime("%d %b %Y  |  %I:%M %p")
+    # TIME
+    now = datetime.now().strftime("%d %b %Y | %I:%M %p")
 
-    # Optional: add a tiny "stroke" to make it extra crisp on thermal printers
-    draw.text(
-        (width // 2, y),
-        now,
-        fill="black",
-        font=font_time,
-        anchor="mm",
-        stroke_width=max(1, int(1 * scale)),
-        stroke_fill="black"
-    )
+    draw.text((width // 2, y),
+              now,
+              fill="black",
+              font=font_time,
+              anchor="mm",
+              stroke_width=max(1, int(1 * scale)),
+              stroke_fill="black")
+    y += int(45 * scale)
+
+    # ROOM INFO (compact)
+    draw.text((width // 2, y),
+              "Nursing: Room 7",
+              fill="black",
+              font=font_small,
+              anchor="mm")
+    y += int(30 * scale)
+
+    draw.text((width // 2, y),
+              "Lab: Room 8",
+              fill="black",
+              font=font_small,
+              anchor="mm")
+    y += int(35 * scale)
+
+    # WIFI (split into short safe lines)
+    draw.text((width // 2, y),
+              "WiFi: PAD-Guest",
+              fill="black",
+              font=font_small,
+              anchor="mm")
+    y += int(25 * scale) 
+
+    draw.text((width // 2, y),
+              "Pass: pad@guest",
+              fill="black",
+              font=font_small,
+              anchor="mm")
 
     return img
 

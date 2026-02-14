@@ -94,7 +94,7 @@
   <div class="card">
     <div class="counter">LAB</div>
     <div class="token" id="token">—</div>
-    <div class="urdu">نرس</div>
+    <div class="urdu">لیب</div>
 
     <!-- required once on TVs -->
     <button class="enable-audio" onclick="enableAudio()">Enable Audio</button>
@@ -104,7 +104,7 @@
 <!-- base audio assets -->
 <audio id="ding" src="/static/ding.wav" preload="auto"></audio>
 <audio id="intro" src="/static/intro.wav" preload="auto"></audio>
-<audio id="nursing" src="/static/nursing.wav" preload="auto"></audio>
+<audio id="lab" src="/static/lab.wav" preload="auto"></audio>
 
 <script>
 let lastToken = null;
@@ -115,14 +115,14 @@ let audioUnlocked = false;
 const DIGIT_FILE = {
   "0": "/static/0.wav",
   "1": "/static/1.wav",
-  "2": "/static/2.mp3",
-  "3": "/static/3.mp3",
-  "4": "/static/4.mp3",
-  "5": "/static/5.mp3",
-  "6": "/static/6.mp3",
-  "7": "/static/7.mp3",
-  "8": "/static/8.mp3",
-  "9": "/static/9.mp3",
+  "2": "/static/2.wav",
+  "3": "/static/3.wav",
+  "4": "/static/4.wav",
+  "5": "/static/5.wav",
+  "6": "/static/6.wav",
+  "7": "/static/7.wav",
+  "8": "/static/8.wav",
+  "9": "/static/9.wav",
 };
 
 // optional: keep cached Audio objects to avoid delay on TVs
@@ -197,13 +197,13 @@ async function announce(token) {
   await playAudioEl(document.getElementById("ding"));
   await playAudioEl(document.getElementById("intro"));
   await speakDigits(token);
-  await playAudioEl(document.getElementById("nursing"));
+  await playAudioEl(document.getElementById("lab"));
 }
 
 async function refresh() {
   try {
     const res = await fetch(
-      "/api/status?dept=welfare&stage=nursing",
+      "/api/status?dept=welfare&stage=lab",
       { cache: "no-store" }
     );
     const data = await res.json();

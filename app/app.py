@@ -52,11 +52,10 @@ def listen_for_server():
                     SERVER_ONLINE = True
                     print(f"✅ Server discovered: {SERVER_BASE}")
 
-        except Exception:
+        except Exception: 
             pass
 
 
-# ===================== CONFIG =====================
 
 def app_dir():
     if getattr(sys, "frozen", False):
@@ -172,21 +171,21 @@ class TabletUI(QWidget):
 
         # Secondary lab button
         self.labBtn = QPushButton(
-            "LAB\n"
-            "لیب\n"
-            "مختبر"
+            "Blood Test / Lab Tests\n"
+            "خون اور دیگر ٹیسٹ\n"
+            "فحص الدم / الفحوصات المخبرية"
         )
         self.labBtn.setMinimumHeight(120)
         self.labBtn.setMinimumWidth(420)
         self.labBtn.setCursor(Qt.PointingHandCursor)
         self.labBtn.setStyleSheet(f"""
             QPushButton {{
-                background: rgba(255,255,255,0.08);
-                color: white;
+                background: white;
+                color: {GREEN_DARK};
                 border: 3px solid rgba(255,255,255,0.55);
                 border-radius: 22px;
                 font-size: 30px;
-                font-weight: 800;
+                font-weight: 900;
             }}
             QPushButton:hover {{
                 background: rgba(255,255,255,0.14);
@@ -264,9 +263,9 @@ class TabletUI(QWidget):
                 "طبيب"
             )
             self.labBtn.setText(
-                "LAB\n"
-                "لیب\n"
-                "مختبر"
+            "Blood Test / Lab Tests\n"
+            "خون اور دیگر ٹیسٹ\n"
+            "فحص الدم / الفحوصات المخبرية"
             )
 
             # Restore original click handlers

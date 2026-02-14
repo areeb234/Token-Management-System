@@ -93,7 +93,7 @@ def nursing_page():
     with open("web/nursing.html", "r", encoding="utf-8") as f:
         return f.read()
     
-@app.get("/nursing", response_class=HTMLResponse)
+@app.get("/lab", response_class=HTMLResponse)
 def lab_page():
     with open("web/lab.html", "r", encoding="utf-8") as f:
         return f.read()
