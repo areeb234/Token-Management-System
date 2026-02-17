@@ -20,7 +20,6 @@
       </div>
     </div>
 
-    <!-- NEW: split waiting -->
     <div class="split">
       <div class="splitBox appt">
         <div class="splitLabel">Appointments</div>
@@ -156,6 +155,14 @@
     .btn.blue { background: #1e49d6; }
     .btn.green { background: #1a7a2e; }
     .btn.orange { background: #b35a00; }
+    .btn.purple {
+    background: #6a1b9a;
+    }
+
+    .btn.purple:hover {
+      background: #4a148c;
+    }
+
 
     .status {
       margin-top: 4px;
@@ -205,7 +212,6 @@
 .modal-buttons .btn {
   flex: 1;
 }
-
   </style>
   <!-- Destination Modal -->
 <div id="destModal" class="modal">
@@ -214,8 +220,8 @@
     <div class="modal-buttons">
       <button id="sendNursing" class="btn green">Nursing</button>
       <button id="sendLab" class="btn orange">Lab</button>
+      <button id="sendRadiology" class="btn purple">Radiology</button>
     </div>
   </div>
 </div>
-
 </body>

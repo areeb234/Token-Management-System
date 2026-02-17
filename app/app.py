@@ -171,10 +171,11 @@ class TabletUI(QWidget):
 
         # Secondary lab button
         self.labBtn = QPushButton(
-            "Blood Test / Lab Tests\n"
-            "خون اور دیگر ٹیسٹ\n"
-            "فحص الدم / الفحوصات المخبرية"
+            "Medical Tests (Blood / X-Ray)\n"
+            "طبی ٹیسٹ (خون / ایکسرے)\n"
+            "الفحوصات الطبية (دم / أشعة)"
         )
+
         self.labBtn.setMinimumHeight(120)
         self.labBtn.setMinimumWidth(420)
         self.labBtn.setCursor(Qt.PointingHandCursor)
@@ -263,9 +264,9 @@ class TabletUI(QWidget):
                 "طبيب"
             )
             self.labBtn.setText(
-            "Blood Test / Lab Tests\n"
-            "خون اور دیگر ٹیسٹ\n"
-            "فحص الدم / الفحوصات المخبرية"
+                "Medical Tests (Blood / X-Ray)\n"
+                "طبی ٹیسٹ (خون / ایکسرے)\n"
+                "الفحوصات الطبية (دم / أشعة)"
             )
 
             # Restore original click handlers

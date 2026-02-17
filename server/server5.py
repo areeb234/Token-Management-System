@@ -42,10 +42,10 @@ class PrintBody(BaseModel):
 
 class CallNextBody(BaseModel):
     dept: str = "welfare"
-    stage: Literal["reception", "nursing", "lab"] = "reception"
+    stage: Literal["reception", "nursing", "lab", "radiology"] = "reception"
     counter: str = "Counter1"
     mode: Literal["auto", "appointment", "walkin"] = "auto"
-    dest_stage: Literal["nursing", "lab"] | None = None
+    dest_stage: Literal["nursing", "lab", "radiology"] | None = None
 
 class RecallBody(BaseModel):
     dept: str = "welfare"
@@ -142,28 +142,22 @@ def api_call_next(body: CallNextBody):
         db.daily_cleanup_if_needed(conn, appt_start=APPT_START, walkin_start=WALKIN_START, lab_start=LAB_START)
 
         if body.stage == "reception":
-            # Check if the current token starts with 3
-            last_called = db.get_last_called(conn, body.dept, stage="reception")
-            
-            if last_called and last_called["token_no"]:
-                token_str = str(last_called["token_no"])
-                # If token starts with 3 → route to lab, otherwise → nursing
-                to_stage = "lab" if token_str.startswith("3") else "nursing"
-            else:
-                to_stage = "nursing"  # default if no previous token
-            
+            # ✅ Counter decides where the previous reception token goes
+            to_stage = body.dest_stage or "nursing"
+
             db.transfer_last_called_to_stage(
                 conn,
                 dept=body.dept,
                 counter=body.counter,
                 from_stage="reception",
-                to_stage=to_stage  # ← Auto-routed based on token number
+                to_stage=to_stage
             )
         else:
-            # nursing/lab: finish previous one so it disappears
+            # nursing/lab/radiology: finish previous one so it disappears
             db.complete_last_called(conn, dept=body.dept, stage=body.stage, counter=body.counter)
 
         token_no = db.call_next_atomic(conn, body.dept, body.counter, body.mode, stage=body.stage)
+
         if token_no is None:
             return {"token_no": None, "stage": body.stage}
 
@@ -217,8 +211,11 @@ def api_status(dept: str = "welfare", stage: str = "reception"):
             counters = ["Nurse1"]
         elif stage == "lab":
             counters = ["Lab1"]
+        elif stage == "radiology":
+            counters = ["Rad1"]
         else:
             counters = ["Counter1", "Counter2", "Counter3", "Counter4"]
+
 
         serving = db.get_last_called_for_counters(conn, dept, counters, stage=stage)
 

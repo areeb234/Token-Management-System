@@ -181,6 +181,7 @@ def create_token_atomic(conn, dept, visit_type, appt_start, walkin_start, lab_st
     conn.commit()
     return int(next_no)
 
+
 def call_next_atomic(conn, dept, counter, visit_type=None, stage: str = 'reception'):
     vt = (visit_type or "auto").lower().strip()
     cur = conn.cursor()
@@ -195,6 +196,7 @@ def call_next_atomic(conn, dept, counter, visit_type=None, stage: str = 'recepti
             FOR UPDATE
         """
         params = (dept, stage)
+
     elif vt == "walkin":
         sql = """
             SELECT id, token_no
@@ -205,18 +207,21 @@ def call_next_atomic(conn, dept, counter, visit_type=None, stage: str = 'recepti
             FOR UPDATE
         """
         params = (dept, stage)
-    elif stage == "lab":
+
+    elif stage in ("lab", "radiology"):
+        # ✅ stage-specific FIFO based on transfer time from reception
         sql = """
             SELECT id, token_no
             FROM tokens
             WHERE dept=%s
-            AND stage='lab'
-            AND status='WAITING'
-            ORDER BY created_at ASC
+              AND stage=%s
+              AND status='WAITING'
+              AND transferred_at IS NOT NULL
+            ORDER BY transferred_at ASC
             LIMIT 1
             FOR UPDATE
         """
-        params = (dept,)
+        params = (dept, stage)
 
     else:
         if stage == "nursing":
@@ -224,15 +229,14 @@ def call_next_atomic(conn, dept, counter, visit_type=None, stage: str = 'recepti
                 SELECT id, token_no
                 FROM tokens
                 WHERE dept=%s
-                AND stage=%s
-                AND status='WAITING'
-                AND transferred_at IS NOT NULL
+                  AND stage=%s
+                  AND status='WAITING'
+                  AND transferred_at IS NOT NULL
                 ORDER BY transferred_at ASC
                 LIMIT 1
                 FOR UPDATE
             """
             params = (dept, stage)
-
         else:
             # 🧾 Reception = priority-aware
             sql = """
@@ -244,7 +248,6 @@ def call_next_atomic(conn, dept, counter, visit_type=None, stage: str = 'recepti
                 FOR UPDATE
             """
             params = (dept, stage)
-
 
     cur.execute(sql, params)
     row = cur.fetchone()

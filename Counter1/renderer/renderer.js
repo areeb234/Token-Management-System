@@ -208,32 +208,25 @@ async function recallToken() {
 }
 
 async function chooseDestinationForCurrentToken() {
-  const el = document.getElementById("currentToken");
-  if (!el) return "nursing";
-
-  const raw = (el.innerText || "").trim();
-  const num = parseInt(raw, 10);
-
-  if (!Number.isFinite(num)) {
-    return "nursing";
-  }
-
-  return new Promise((resolve) => {
+   return new Promise((resolve) => {
     const modal = document.getElementById("destModal");
     const btnNursing = document.getElementById("sendNursing");
     const btnLab = document.getElementById("sendLab");
+    const btnRadiology = document.getElementById("sendRadiology");
+    const btnCancel = document.getElementById("sendCancel"); // add if you want cancel
 
     modal.style.display = "flex";
 
-    btnNursing.onclick = () => {
+    const close = (value) => {
       modal.style.display = "none";
-      resolve("nursing");
+      resolve(value);
     };
 
-    btnLab.onclick = () => {
-      modal.style.display = "none";
-      resolve("lab");
-    };
+    btnNursing.onclick = () => close("nursing");
+    btnLab.onclick = () => close("lab");
+    btnRadiology.onclick = () => close("radiology");
+
+    if (btnCancel) btnCancel.onclick = () => close(null);
   });
 }
 
