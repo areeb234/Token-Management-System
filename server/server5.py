@@ -46,6 +46,7 @@ class CallNextBody(BaseModel):
     counter: str = "Counter1"
     mode: Literal["auto", "appointment", "walkin"] = "auto"
     dest_stage: Literal["nursing", "lab", "radiology"] | None = None
+    room: int | None = None  # e.g. 11–18 for nursing rooms
 
 class RecallBody(BaseModel):
     dept: str = "welfare"
@@ -62,6 +63,11 @@ def startup():
         db.init_db(conn, appt_start=APPT_START, walkin_start=WALKIN_START, lab_start=LAB_START)
         db.create_indexes(conn)   # <-- Step 3 adds this function
         db.daily_cleanup_if_needed(conn, appt_start=APPT_START, walkin_start=WALKIN_START, lab_start=LAB_START)
+
+        # Migration: add room column to tokens if it doesn't exist yet
+        cur = conn.cursor()
+        cur.execute("ALTER TABLE tokens ADD COLUMN IF NOT EXISTS room INTEGER DEFAULT NULL")
+        conn.commit()
     finally:
         conn.close()
 
@@ -158,7 +164,16 @@ def api_call_next(body: CallNextBody):
         if token_no is None:
             return {"token_no": None, "stage": body.stage}
 
-        return {"token_no": token_no, "dept": body.dept, "stage": body.stage, "counter": body.counter}
+        # Store the assigned room on the token (nursing-specific)
+        if body.room is not None:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE tokens SET room = %s WHERE token_no = %s AND dept = %s AND stage = %s",
+                (body.room, token_no, body.dept, body.stage)
+            )
+            conn.commit()
+
+        return {"token_no": token_no, "dept": body.dept, "stage": body.stage, "counter": body.counter, "room": body.room}
     finally:
         conn.close()
 

@@ -78,12 +78,85 @@ async function refresh() {
   }
 }
 
+function selectRoom() {
+  return new Promise((resolve) => {
+    // Remove any existing modal
+    document.getElementById("roomModal")?.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "roomModal";
+    overlay.style.cssText = `
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999; font-family: sans-serif;
+    `;
+
+    const box = document.createElement("div");
+    box.style.cssText = `
+      background: #fff; border-radius: 12px; padding: 32px 36px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25); min-width: 320px; text-align: center;
+    `;
+
+    const title = document.createElement("h2");
+    title.innerText = "Select Room";
+    title.style.cssText = "margin: 0 0 20px; font-size: 22px; color: #1a1a2e;";
+    box.appendChild(title);
+
+    const grid = document.createElement("div");
+    grid.style.cssText = `
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px;
+    `;
+
+    for (let room = 11; room <= 18; room++) {
+      const btn = document.createElement("button");
+      btn.innerText = room;
+      btn.style.cssText = `
+        padding: 14px 0; font-size: 18px; font-weight: bold; border: 2px solid #4a90d9;
+        border-radius: 8px; background: #f0f7ff; color: #1a1a2e; cursor: pointer;
+        transition: background 0.15s;
+      `;
+      btn.onmouseenter = () => { btn.style.background = "#4a90d9"; btn.style.color = "#fff"; };
+      btn.onmouseleave = () => { btn.style.background = "#f0f7ff"; btn.style.color = "#1a1a2e"; };
+      btn.addEventListener("click", () => {
+        overlay.remove();
+        resolve(room);
+      });
+      grid.appendChild(btn);
+    }
+    box.appendChild(grid);
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.innerText = "Cancel";
+    cancelBtn.style.cssText = `
+      padding: 10px 28px; font-size: 15px; border: 1px solid #ccc;
+      border-radius: 8px; background: #f5f5f5; color: #555; cursor: pointer;
+    `;
+    cancelBtn.addEventListener("click", () => {
+      overlay.remove();
+      resolve(null);
+    });
+    box.appendChild(cancelBtn);
+
+    overlay.appendChild(box);
+
+    // Close on backdrop click
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) { overlay.remove(); resolve(null); }
+    });
+
+    document.body.appendChild(overlay);
+  });
+}
+
 async function nextToken() {
+  const room = await selectRoom();
+  if (room === null) return; // Nurse cancelled
+
   try {
     const res = await fetch(`${baseUrl}/api/call-next`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dept, stage, counter, mode: "auto" })
+      body: JSON.stringify({ dept, stage, counter, mode: "auto", room })
     });
 
     const data = await res.json();
@@ -95,6 +168,7 @@ async function nextToken() {
 
     // Every time nurse presses NEXT, server marks previous CALLED as SERVED, so we increment served count
     localServedCount++;
+    setText("status", `Room ${room} → ${data.token_no}`);
     await refresh();
   } catch (e) {
     console.log("nextToken error:", e);
