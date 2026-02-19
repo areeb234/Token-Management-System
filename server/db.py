@@ -182,7 +182,7 @@ def create_token_atomic(conn, dept, visit_type, appt_start, walkin_start, lab_st
     return int(next_no)
 
 
-def call_next_atomic(conn, dept, counter, visit_type=None, stage: str = 'reception'):
+def call_next_atomic(conn, dept, counter, visit_type=None, stage: str = 'reception', room: int | None = None):
     vt = (visit_type or "auto").lower().strip()
     cur = conn.cursor()
 
@@ -222,6 +222,22 @@ def call_next_atomic(conn, dept, counter, visit_type=None, stage: str = 'recepti
             FOR UPDATE
         """
         params = (dept, stage)
+
+    elif stage == "doctor":
+        # Each doctor room only sees tokens stamped with their room number
+        sql = """
+            SELECT id, token_no
+            FROM tokens
+            WHERE dept=%s
+              AND stage=%s
+              AND status='WAITING'
+              AND transferred_at IS NOT NULL
+              AND room=%s
+            ORDER BY transferred_at ASC
+            LIMIT 1
+            FOR UPDATE
+        """
+        params = (dept, stage, room)
 
     else:
         if stage == "nursing":
@@ -266,10 +282,12 @@ def call_next_atomic(conn, dept, counter, visit_type=None, stage: str = 'recepti
     conn.commit()
     return int(row["token_no"])
 
-def transfer_last_called_to_stage(conn, dept: str, counter: str, from_stage: str, to_stage: str) -> bool:
+def transfer_last_called_to_stage(conn, dept: str, counter: str, from_stage: str, to_stage: str, room: int | None = None) -> bool:
     """
     When Reception clicks NEXT again, we "finish" the previous CALLED token at reception
     and push it to nursing WAITING queue.
+    When Nursing clicks NEXT, we push the previous CALLED token to doctor WAITING queue,
+    stamping the selected room so the right doctor counter can pick it up.
     Returns True if something was transferred.
     """
     cur = conn.cursor()
@@ -298,9 +316,10 @@ def transfer_last_called_to_stage(conn, dept: str, counter: str, from_stage: str
             status='WAITING',
             called_at=NULL,
             called_by=NULL,
-            transferred_at=%s
+            transferred_at=%s,
+            room=%s
         WHERE id=%s
-    """, (to_stage, now, row["id"]))
+    """, (to_stage, now, room, row["id"]))
 
     conn.commit()
     return True
@@ -388,15 +407,25 @@ def get_queue(conn, dept: str, stage: str = 'reception'):
         "called_count": len(called),
     }
 
-def get_last_called(conn, dept: str, stage: str = 'reception'):
+def get_last_called(conn, dept: str, stage: str = 'reception', counter: str | None = None):
     cur = conn.cursor()
-    cur.execute("""
-        SELECT token_no, called_by
-        FROM tokens
-        WHERE dept=%s AND stage=%s AND status='CALLED' AND called_at IS NOT NULL
-        ORDER BY called_at DESC
-        LIMIT 1
-    """, (dept, stage))
+    if counter:
+        cur.execute("""
+            SELECT token_no, called_by
+            FROM tokens
+            WHERE dept=%s AND stage=%s AND status='CALLED'
+              AND called_at IS NOT NULL AND called_by=%s
+            ORDER BY called_at DESC
+            LIMIT 1
+        """, (dept, stage, counter))
+    else:
+        cur.execute("""
+            SELECT token_no, called_by
+            FROM tokens
+            WHERE dept=%s AND stage=%s AND status='CALLED' AND called_at IS NOT NULL
+            ORDER BY called_at DESC
+            LIMIT 1
+        """, (dept, stage))
     row = cur.fetchone()
     if not row:
         return None

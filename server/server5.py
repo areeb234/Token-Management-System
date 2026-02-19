@@ -1,4 +1,3 @@
-# server5.py
 import configparser
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
@@ -42,15 +41,15 @@ class PrintBody(BaseModel):
 
 class CallNextBody(BaseModel):
     dept: str = "welfare"
-    stage: Literal["reception", "nursing", "lab", "radiology"] = "reception"
+    stage: Literal["reception", "nursing", "lab", "radiology", "doctor"] = "reception"
     counter: str = "Counter1"
     mode: Literal["auto", "appointment", "walkin"] = "auto"
-    dest_stage: Literal["nursing", "lab", "radiology"] | None = None
-    room: int | None = None  # e.g. 11–18 for nursing rooms
+    dest_stage: Literal["nursing", "lab", "radiology", "doctor"] | None = None
+    room: int | None = None  # 11–18: nurse routes to doctor room; doctor uses to filter queue
 
 class RecallBody(BaseModel):
     dept: str = "welfare"
-    stage: Literal["reception", "nursing", "lab", "radiology"] = "reception"
+    stage: Literal["reception", "nursing", "lab", "radiology", "doctor"] = "reception"
     counter: str | None = None
 
 # ------------------ startup ------------------
@@ -102,8 +101,18 @@ def lab_page():
         return f.read()
 
 @app.get("/serving-lab", response_class=HTMLResponse)
-def serving_nursing_page():
+def serving_lab_page():
     with open("web/serving_lab.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+@app.get("/doctor", response_class=HTMLResponse)
+def doctor_page():
+    with open("web/doctor.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+@app.get("/serving-doctor", response_class=HTMLResponse)
+def serving_doctor_page():
+    with open("web/serving_doctor.html", "r", encoding="utf-8") as f:
         return f.read()
 
 
@@ -135,43 +144,41 @@ def api_print_token(body: PrintBody):
 def api_call_next(body: CallNextBody):
     """
     Stage behavior:
-      - reception: when you click NEXT, we first transfer the *previous* reception token
-        (the one last CALLED by this counter) to nursing WAITING queue, then we CALL the next one.
-      - nursing: when you click NEXT, we first mark the *previous* nursing token as SERVED,
-        then we CALL the next one from nursing queue.
+      - reception: transfer previous CALLED token to nursing (or dest_stage), then CALL next.
+      - nursing:   transfer previous CALLED token to doctor stage stamped with selected room,
+                   then CALL next nursing token.
+      - doctor:    SERVE previous CALLED token for this room/counter, then CALL next for this room.
+      - lab/radiology: SERVE previous, CALL next.
     """
     conn = db.connect()
     try:
         db.daily_cleanup_if_needed(conn, appt_start=APPT_START, walkin_start=WALKIN_START, lab_start=LAB_START)
 
         if body.stage == "reception":
-            # ✅ Counter decides where the previous reception token goes
             to_stage = body.dest_stage or "nursing"
-
             db.transfer_last_called_to_stage(
-                conn,
-                dept=body.dept,
-                counter=body.counter,
-                from_stage="reception",
-                to_stage=to_stage
+                conn, dept=body.dept, counter=body.counter,
+                from_stage="reception", to_stage=to_stage
             )
+
+        elif body.stage == "nursing":
+            # Transfer previous nursing token to doctor, stamping the selected room
+            db.transfer_last_called_to_stage(
+                conn, dept=body.dept, counter=body.counter,
+                from_stage="nursing", to_stage="doctor", room=body.room
+            )
+
         else:
-            # nursing/lab/radiology: finish previous one so it disappears
+            # doctor / lab / radiology: mark previous as SERVED
             db.complete_last_called(conn, dept=body.dept, stage=body.stage, counter=body.counter)
 
-        token_no = db.call_next_atomic(conn, body.dept, body.counter, body.mode, stage=body.stage)
+        token_no = db.call_next_atomic(
+            conn, body.dept, body.counter, body.mode,
+            stage=body.stage, room=body.room
+        )
 
         if token_no is None:
             return {"token_no": None, "stage": body.stage}
-
-        # Store the assigned room on the token (nursing-specific)
-        if body.room is not None:
-            cur = conn.cursor()
-            cur.execute(
-                "UPDATE tokens SET room = %s WHERE token_no = %s AND dept = %s AND stage = %s",
-                (body.room, token_no, body.dept, body.stage)
-            )
-            conn.commit()
 
         return {"token_no": token_no, "dept": body.dept, "stage": body.stage, "counter": body.counter, "room": body.room}
     finally:
@@ -179,25 +186,20 @@ def api_call_next(body: CallNextBody):
 
 @app.post("/api/recall-last")
 def api_recall_last(body: RecallBody):
-    """
-    Recall for a stage.
-    Note: only reception recall updates the global recall_seq (so tablet audio stays correct).
-    Nursing recall is "local" (returns the last called in nursing) without affecting recall_seq.
-    """
     conn = db.connect()
     try:
-
-        last = db.get_last_called(conn, body.dept, stage=body.stage)
+        # For doctor stage, filter recall by this counter so Room14 only recalls its own token
+        last = db.get_last_called(conn, body.dept, stage=body.stage,
+                                  counter=body.counter if body.stage == "doctor" else None)
         if not last:
             return {"token_no": None, "stage": body.stage}
 
         counter = body.counter or last["called_by"]
 
         if body.stage == "reception":
-            # ✅ record recall with counter (used by reception tablet audio)
             db.record_recall(conn, counter)
         else:
-            # ✅ nursing recall is LOCAL ONLY (no DB change, no tablet audio)
+            # nursing, doctor, lab: local recall only — no tablet audio
             global NURSING_RECALL_SEQ, LAST_NURSING_RECALL_COUNTER
             NURSING_RECALL_SEQ += 1
             LAST_NURSING_RECALL_COUNTER = counter
@@ -222,9 +224,11 @@ def api_status(dept: str = "welfare", stage: str = "reception"):
         if stage == "nursing":
             counters = ["Nurse1"]
         elif stage == "lab":
-            counters = ["Lab1", "Rad1"]   # include both
+            counters = ["Lab1", "Rad1"]
         elif stage == "radiology":
             counters = ["Rad1"]
+        elif stage == "doctor":
+            counters = [f"Room{r}" for r in range(11, 19)]
         else:
             counters = ["Counter1", "Counter2", "Counter3", "Counter4"]
 
@@ -237,8 +241,8 @@ def api_status(dept: str = "welfare", stage: str = "reception"):
             "recall_seq": row["recall_seq"] if row else 0,
             "recall_counter": row["last_recall_counter"] if row else None,
             # Expose nursing-style recall info for both nursing and lab stages
-            "nursing_recall_seq": (NURSING_RECALL_SEQ if stage in ("nursing", "lab") else 0),
-            "nursing_recall_counter": (LAST_NURSING_RECALL_COUNTER if stage in ("nursing", "lab") else None),
+            "nursing_recall_seq": (NURSING_RECALL_SEQ if stage in ("nursing", "lab", "doctor") else 0),
+            "nursing_recall_counter": (LAST_NURSING_RECALL_COUNTER if stage in ("nursing", "lab", "doctor") else None),
             "serving": serving
         }
     finally:
