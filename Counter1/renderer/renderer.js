@@ -208,30 +208,28 @@ async function recallToken() {
 }
 
 async function chooseDestinationForCurrentToken() {
-  const el = document.getElementById("currentToken");
-  if (!el) return "nursing";
-  const raw = (el.innerText || "").trim();
-  const num = parseInt(raw, 10);
+   return new Promise((resolve) => {
+    const modal = document.getElementById("destModal");
+    const btnNursing = document.getElementById("sendNursing");
+    const btnLab = document.getElementById("sendLab");
+    const btnRadiology = document.getElementById("sendRadiology");
+    const btnCancel = document.getElementById("sendCancel"); // add if you want cancel
 
-  if (!Number.isFinite(num)) {
-    // no valid current token yet → default to nursing
-    return "nursing";
-  }
+    modal.style.display = "flex";
 
-  // Always ask where to send this finished patient
-  const msg =
-    `Token ${num}\n\n` +
-    `Where do you want to send this patient?\n\n` +
-    `OK = Send to NURSING\n` +
-    `Cancel = Send to LAB`;
+    const close = (value) => {
+      modal.style.display = "none";
+      resolve(value);
+    };
 
-  const toNursing = window.confirm(msg);
-  // If user closes dialog without choosing, treat as cancel → null
-  if (toNursing === undefined) {
-    return null;
-  }
-  return toNursing ? "nursing" : "lab";
+    btnNursing.onclick = () => close("nursing");
+    btnLab.onclick = () => close("lab");
+    btnRadiology.onclick = () => close("radiology");
+
+    if (btnCancel) btnCancel.onclick = () => close(null);
+  });
 }
+
 async function loadSavedConfig() {
   try {
     const cfg = await ipcRenderer.invoke("config:get");

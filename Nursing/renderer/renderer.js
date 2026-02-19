@@ -4,7 +4,6 @@ const dgram = require("dgram");
 let baseUrl = "http://172.16.0.162:8032";
 const DISCOVERY_PORT = 9999;
 
-// ✅ set your nursing station identity here
 const stage = "nursing";
 const counter = "Nurse1";
 const dept = "welfare";
@@ -35,7 +34,7 @@ function startDiscoveryListener() {
     sock.on("message", async (msg, rinfo) => {
       try {
         const data = JSON.parse(msg.toString());
-        if (data?.service !== "Reception-QMS") return;
+        if (data?.service !== "Test-QMS") return;
 
         const ip = data.ip || rinfo.address;
         const port = data.port || 8032;

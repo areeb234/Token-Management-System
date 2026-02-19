@@ -6,8 +6,8 @@ const DISCOVERY_PORT = 9999;
 let isCalling = false;
 
 // ✅ set your lab station identity here (own stage)
-const stage = "lab";
-const counter = "Lab1"; // renamed from Nurse1
+const stage = "radiology";
+const counter = "Rad1"; // renamed from Nurse1
 const dept = "welfare";
 
 console.log("lab_renderer.js loaded ✅");
