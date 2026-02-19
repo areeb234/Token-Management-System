@@ -49,17 +49,14 @@ class CallNextBody(BaseModel):
 
 class RecallBody(BaseModel):
     dept: str = "welfare"
-    stage: Literal["reception", "nursing", "lab"] = "reception"
+    stage: Literal["reception", "nursing", "lab", "radiology"] = "reception"
     counter: str | None = None
 
 # ------------------ startup ------------------
 
 @app.on_event("startup")
 def startup():
-    # autodiscovery broadcast
     start_broadcast(PORT)
-
-    # ✅ init db once at boot (tables/state/indexes)
     conn = db.connect()
     try:
         db.init_db(conn, appt_start=APPT_START, walkin_start=WALKIN_START, lab_start=LAB_START)
@@ -210,7 +207,7 @@ def api_status(dept: str = "welfare", stage: str = "reception"):
         if stage == "nursing":
             counters = ["Nurse1"]
         elif stage == "lab":
-            counters = ["Lab1"]
+            counters = ["Lab1", "Rad1"]   # include both
         elif stage == "radiology":
             counters = ["Rad1"]
         else:

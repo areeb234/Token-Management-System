@@ -81,6 +81,25 @@
     color: white;
     cursor: pointer;
   }
+  .cards {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 40px;
+  width: 100%;
+  margin-top: 40px;
+}
+
+.card {
+  flex: 1;
+  max-width: 600px;
+  background: var(--card-bg);
+  border: 4px solid var(--accent);
+  border-radius: 28px;
+  padding: 40px;
+  text-align: center;
+}
+
 </style>
 </head>
 
@@ -91,14 +110,26 @@
     <div class="title">LAB</div>
   </div>
 
+<div class="cards">
+
+  <!-- LAB CARD -->
   <div class="card">
     <div class="counter">LAB</div>
-    <div class="token" id="token">—</div>
+    <div class="token" id="labToken">—</div>
     <div class="urdu">لیب</div>
-
-    <!-- required once on TVs -->
-    <button class="enable-audio" onclick="enableAudio()">Enable Audio</button>
   </div>
+
+  <!-- RADIOLOGY CARD -->
+  <div class="card">
+    <div class="counter">RADIOLOGY</div>
+    <div class="token" id="radToken">—</div>
+    <div class="urdu">ریڈیالوجی</div>
+  </div>
+
+</div>
+
+<button class="enable-audio" onclick="enableAudio()">Enable Audio</button>
+
 </div>
 
 <!-- base audio assets -->
@@ -107,11 +138,13 @@
 <audio id="lab" src="/static/lab.wav" preload="auto"></audio>
 
 <script>
-let lastToken = null;
-let lastRecallSeq = null;
+let lastLabToken = null;
+let lastRadToken = null;
 let audioUnlocked = false;
 
-// ✅ your digit recordings (based on your screenshot)
+const LAB_COUNTER = "Lab1";
+const RAD_COUNTER = "Rad1";
+
 const DIGIT_FILE = {
   "0": "/static/0.wav",
   "1": "/static/1.wav",
@@ -125,7 +158,6 @@ const DIGIT_FILE = {
   "9": "/static/9.wav",
 };
 
-// optional: keep cached Audio objects to avoid delay on TVs
 const DIGIT_AUDIO = {};
 let preloaded = false;
 
@@ -133,7 +165,6 @@ function enableAudio() {
   audioUnlocked = true;
   document.querySelector(".enable-audio").style.display = "none";
 
-  // ✅ Preload digit audios after user gesture (important for TVs)
   if (!preloaded) {
     for (const d of Object.keys(DIGIT_FILE)) {
       const a = new Audio(DIGIT_FILE[d]);
@@ -142,18 +173,8 @@ function enableAudio() {
     }
     preloaded = true;
   }
-
-  // "unlock" audio on strict browsers by playing a silent/very short sound
-  // If ding.wav is long, do not play it here. We just prime the pipeline.
-  try {
-    const a = DIGIT_AUDIO["0"] || new Audio(DIGIT_FILE["0"]);
-    a.muted = true;
-    a.currentTime = 0;
-    a.play().then(() => { a.pause(); a.muted = false; }).catch(() => {});
-  } catch {}
 }
 
-// play a DOM <audio> element and wait until finished
 function playAudioEl(audio) {
   return new Promise(res => {
     if (!audioUnlocked) return res();
@@ -164,7 +185,6 @@ function playAudioEl(audio) {
   });
 }
 
-// play a digit audio file (cached) and wait until finished
 function playDigit(d) {
   return new Promise(res => {
     if (!audioUnlocked) return res();
@@ -175,29 +195,26 @@ function playDigit(d) {
     a.currentTime = 0;
     a.onended = res;
     a.onerror = res;
-
     a.play().catch(() => res());
   });
 }
 
-// ✅ uses recordings for digits: 4 → 0 → 2 → 1
 async function speakDigits(token) {
-  if (!audioUnlocked) return;
-
   const s = String(token).replace(/\D/g, "");
   for (const d of s) {
     await playDigit(d);
   }
 }
 
-// full sequence: ding → intro → digits(recordings) → nursing
-async function announce(token) {
+async function announce(token, deptAudioFile) {
   if (!audioUnlocked) return;
 
   await playAudioEl(document.getElementById("ding"));
   await playAudioEl(document.getElementById("intro"));
   await speakDigits(token);
-  await playAudioEl(document.getElementById("lab"));
+
+  const deptAudio = new Audio(deptAudioFile);
+  await playAudioEl(deptAudio);
 }
 
 async function refresh() {
@@ -209,27 +226,23 @@ async function refresh() {
     const data = await res.json();
 
     const serving = data?.serving || {};
-    const token = serving?.Lab1 ?? "—";
 
-    const recallSeq = data?.nursing_recall_seq ?? 0;
-    const recallCounter = data?.nursing_recall_counter ?? "Lab1";
+    const labToken = serving?.[LAB_COUNTER] ?? "—";
+    const radToken = serving?.[RAD_COUNTER] ?? "—";
 
-    document.getElementById("token").innerText = token;
+    document.getElementById("labToken").innerText = labToken;
+    document.getElementById("radToken").innerText = radToken;
 
-    // NORMAL CALL
-    if (token !== "—" && token !== lastToken) {
-      lastToken = token;
-      await announce(token);
+    // LAB change
+    if (labToken !== "—" && labToken !== lastLabToken) {
+      lastLabToken = labToken;
+      await announce(labToken, "/static/lab.wav");
     }
 
-    // RECALL
-    if (
-      recallSeq !== lastRecallSeq &&
-      recallCounter === "Lab1" &&
-      token !== "—"
-    ) {
-      lastRecallSeq = recallSeq;
-      await announce(token);
+    // RADIOLOGY change
+    if (radToken !== "—" && radToken !== lastRadToken) {
+      lastRadToken = radToken;
+      await announce(radToken, "/static/radiology.wav");
     }
 
   } catch (e) {
@@ -240,5 +253,7 @@ async function refresh() {
 refresh();
 setInterval(refresh, 1000);
 </script>
+
+
 </body>
 </html>
